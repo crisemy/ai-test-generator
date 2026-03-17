@@ -42,8 +42,6 @@ Create a .env file in the root:
 
 GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-Note: Provided a .env.example file
-
 5. (One-time) Train the risk model
 ```bash
     jupyter notebook notebooks/risk_model_training.ipynb
