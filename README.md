@@ -16,7 +16,7 @@ An intelligent web tool that automatically generates high-quality test cases, Pl
 
 ## Demo
 
-![AI-Powered Test Case Generator & Optimizer](./images/AI-Test-Generator.mp4 "Streamlit Dashboard")  
+![AI-Powered Test Case Generator & Optimizer](./images/AI-Test-Generator.mp4 "AI Test Generator")  
 
 ## Quick Start
 
@@ -56,7 +56,7 @@ Note: Provided a .env.example file
 Open http://localhost:8501 in your browser.
 
 ## Project Structure
-
+```bash
 ai-test-generator/
 ├── app.py                        # Main Streamlit application
 ├── notebooks/
@@ -69,7 +69,7 @@ ai-test-generator/
 ├── .env.example
 ├── .gitignore
 └── README.md
-
+```
 ## How it works
 
 1.  Input — Paste a user story or use quick fintech/SaaS examples.
@@ -87,7 +87,7 @@ Automation: Playwright (Python sync API)
 Data/Model Persistence: pandas + joblib
 
 ## Requirements
-
+```bash
 streamlit>=1.38.0
 groq>=0.9.0
 python-dotenv>=1.0.1
@@ -95,7 +95,7 @@ pandas>=2.2.0
 numpy>=1.26.0
 scikit-learn>=1.5.0
 joblib>=1.4.0
-
+```
 ## Author
 
 Cristian N.
