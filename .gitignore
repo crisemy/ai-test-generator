@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+*.venv
+
+# Environment variables and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env.backup
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE / Editor files
+.idea/               
+.vscode/                
+*.swp
+*.swo
+*.swn
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# Streamlit specific
+.streamlit/
+.cache/
+
+# Testing and coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.pytest_cache/
+tox/
+.nox/
+
+# Jupyter / Notebooks (si usás para prototipar el ML)
+.ipynb_checkpoints/
+
+# Large files you might download/generate
+*.zip               
+*.tar.gz
+*.csv  
+*.xlsx
+*.parquet
+*.model
+*.h5
+*.pth
+
+# Dependency locks (si usás poetry o pipenv en el futuro)
+Pipfile.lock
+poetry.lock
+s
+# Personal files
+linkedInSpeach.txt
