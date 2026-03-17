@@ -39,9 +39,9 @@ Note: Provided a init-scripts folder containing .sh scripts for initializing the
 ```
 4. Set up your Groq API key
 Create a .env file in the root and incorporate a Groq API Key:
-
+```bash
 GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
+```
 5. (One-time) Train the risk model
 ```bash
     jupyter notebook notebooks/risk_model_training.ipynb
