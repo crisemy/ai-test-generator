@@ -16,7 +16,7 @@ An intelligent web tool that automatically generates high-quality test cases, Pl
 
 ## Demo
 
-![AI-Powered Test Case Generator & Optimizer](./images/AI-Test-Generator.mp4 "AI Test Generator")  
+![AI-Powered Test Case Generator & Optimizer](./images/MLRiskDashboard.png "AI Test Generator")  
 
 ## Quick Start
 
