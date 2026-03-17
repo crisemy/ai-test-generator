@@ -37,7 +37,7 @@ Note: Provided a init-scripts folder containing .sh scripts for initializing the
 ```bash
     pip install -r requirements.txt
 ```
-4. Set up your Groq API key
+4. Set up your Groq API key (https://console.groq.com/keys)
 Create a .env file in the root and incorporate a Groq API Key:
 ```bash
 GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
