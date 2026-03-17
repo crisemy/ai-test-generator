@@ -38,7 +38,7 @@ Note: Provided a init-scripts folder containing .sh scripts for initializing the
     pip install -r requirements.txt
 ```
 4. Set up your Groq API key
-Create a .env file in the root:
+Create a .env file in the root and incorporate a Groq API Key:
 
 GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
