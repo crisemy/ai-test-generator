@@ -7,3 +7,5 @@ python-dotenv>=1.0.1       # Safe .venv handling
 scikit-learn>=1.5.0        # ML (RandomForest, etc.)
 pandas>=2.2.0              # Datasets handling
 numpy>=1.26.0              # Common dependency of pandas/sklearn
+shap>=0.40.0               # ML Explainability
+matplotlib>=3.7.0          # Plotting engine for SHAP

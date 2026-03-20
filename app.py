@@ -6,11 +6,14 @@ import zipfile
 import io
 import pandas as pd
 import joblib
+import shap
+import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 
 load_dotenv()
 
 st.set_page_config(page_title="AI Test Case Generator & Optimizer", layout="wide")
+st.logo("assets/logo.svg")
 st.title("AI-Powered Test Case Generator & Optimizer")
 st.markdown("**Project 1** — Senior QA Engineer & Test Architect | Fintech/SaaS + ML Risk Scoring")
 
@@ -55,6 +58,8 @@ for col, (label, text) in zip(cols, quick_stories):
     if col.button(label):
         st.session_state.user_story = text
         st.session_state.textarea_version += 1
+        if "generated_data" in st.session_state:
+            del st.session_state["generated_data"]
         st.rerun()
 
 # Main input
@@ -71,6 +76,8 @@ with col_clear:
     if st.button("Clear User Story"):
         st.session_state.user_story = ""
         st.session_state.textarea_version += 1
+        if "generated_data" in st.session_state:
+            del st.session_state["generated_data"]
         st.rerun()
 
 # Load ML model (cached)
@@ -165,14 +172,20 @@ Respond with valid JSON ONLY."""
 
     # Sort test cases by risk score descending
     data["test_cases"] = sorted(data["test_cases"], key=lambda x: x.get('risk_score', 0), reverse=True)
+    
+    st.session_state.generated_data = data
+
+if "generated_data" in st.session_state:
+    data = st.session_state.generated_data
 
     # Tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "Risk Prioritized Table",
         "Playwright Scripts",
         "Gherkin Summary",
         "Raw JSON",
-        "ML Risk Dashboard"
+        "ML Risk Dashboard",
+        "SHAP Explainability"
     ])
 
     with tab1:
@@ -242,6 +255,53 @@ Respond with valid JSON ONLY."""
                 
         else:
             st.info("Generate some tests to see the risk distribution.")
+
+    with tab6:
+        st.subheader("Model Decision Transparency (SHAP)")
+        st.markdown("Understand EXACTLY why the ML model assigned a specific Risk Score to a test case.")
+        
+        if data.get("test_cases"):
+            # Select test case by ID and Scenario
+            tc_options = {f"{tc['id']} - {tc['scenario']}": tc for tc in data["test_cases"]}
+            selected_tc_key = st.selectbox("Select a Test Case to explain:", list(tc_options.keys()))
+            selected_tc = tc_options[selected_tc_key]
+            
+            # Reconstruct feature vector
+            feats = extract_features(selected_tc)
+            X_pred = pd.DataFrame([feats])
+            
+            with st.spinner("Generating SHAP explanation..."):
+                try:
+                    # Initialize tree explainer
+                    explainer = shap.TreeExplainer(model_rf)
+                    shap_values = explainer(X_pred)
+                    
+                    # Target class logic: model_rf outputs predicting risk classes.
+                    # Usually, index 1 is the positive/high risk class, but we need to pass the appropriate index.
+                    # To keep it robust, if shap_values handles multi-class, we pick the first instance and the predicted class.
+                    # With RandomForest in scikit-learn, shap_values might have shape (n_samples, n_features, n_classes).
+                    val_to_plot = shap_values[0]
+                    if len(shap_values.shape) == 3:
+                        # Extract the array corresponding to the specific predicted class logic, or default to class index 1 (usually High Risk)
+                        # We just plot the index 1 for highest probability class
+                        val_to_plot = shap_values[0, :, 1] if shap_values.shape[2] > 1 else shap_values[0]
+
+                    fig, ax = plt.subplots(figsize=(8, 5))
+                    shap.plots.waterfall(val_to_plot, show=False)
+                    st.pyplot(fig)
+                    
+                    st.success(f"**Predicted Risk Label:** {selected_tc.get('risk_label')} (Score: {selected_tc.get('risk_score')})")
+                    st.markdown("""
+                    **How to read the SHAP Waterfall Plot:**
+                    - **f(x)** is the model output (before probability scaling) for this specific test case.
+                    - **E[f(x)]** is the baseline average output across the training data.
+                    - Red bars (+): Features that *increased* the risk (pushed it higher).
+                    - Blue bars (-): Features that *decreased* the risk (pushed it lower).
+                    """)
+                except Exception as e:
+                    st.error(f"Could not render SHAP plot: {e}")
+        else:
+            st.info("Generate some tests first to analyze their risk score drivers.")
 
     # ZIP Download
     def create_zip():
