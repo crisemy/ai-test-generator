@@ -29,6 +29,43 @@ else:
     st.warning("Enter your Groq API Key to continue.")
     st.stop()
 
+# Load ML model (cached)
+@st.cache_resource
+def load_risk_model():
+    model_path = "data/risk_model.pkl"
+    encoder_path = "data/label_encoder.pkl"
+    
+    if not (os.path.exists(model_path) and os.path.exists(encoder_path)):
+        st.error("ML model files not found. Please run the training notebook first and ensure files are saved in /data/")
+        st.stop()
+    
+    clf = joblib.load(model_path)
+    le = joblib.load(encoder_path)
+    return clf, le
+
+model_rf, label_encoder = load_risk_model()
+
+# Feature extraction: Supports both dict (test case) and string (raw story)
+def extract_features(tc):
+    if isinstance(tc, str):
+        text = tc.lower()
+        neg = 0
+        edge = 0
+    else:
+        text = " ".join([str(tc.get(k, "")) for k in ["scenario", "given", "when", "then"]]).lower()
+        neg = 1 if tc.get('type') == 'Negative' else 0
+        edge = 1 if tc.get('type') == 'Edge' else 0
+        
+    return {
+        'loc': len(text) // 10,                     
+        'cyclomatic_complexity': len(text.split()) // 5 + 5,
+        'prev_defects': 4 if any(w in text for w in ['transfer', 'payment', 'money', 'withdraw']) else 1,
+        'negative_tests': neg,
+        'edge_tests': edge,
+        'money_related': 1 if any(w in text for w in ['amount', 'money', 'transfer', 'currency', '$']) else 0,
+        'security_related': 1 if any(w in text for w in ['2fa', 'password', 'auth', 'security', 'token', 'otp']) else 0
+    }
+
 # Model selection
 model = st.selectbox(
     "LLM Model",
@@ -42,36 +79,102 @@ if "user_story" not in st.session_state:
 if "textarea_version" not in st.session_state:
     st.session_state.textarea_version = 0
 
-# Quick Start Examples
-st.subheader("Quick Start Examples")
-cols = st.columns(3)
-quick_stories = [
-    ("Fintech: Money Transfer with 2FA", 
-     "As a registered bank customer, I want to transfer money between my accounts with mandatory 2FA verification, so that transfers are secure."),
-    ("SaaS: User Signup", 
-     "As a new user, I want to sign up with email, password, and company name validation, so I can create an account quickly and securely."),
-    ("Edge Case: Large Amount Transfer", 
-     "As a premium user, I want to initiate a high-value international transfer (> $100,000) with additional approval steps."),
-]
+st.divider()
 
-for col, (label, text) in zip(cols, quick_stories):
-    if col.button(label):
-        st.session_state.user_story = text
-        st.session_state.textarea_version += 1
-        if "generated_data" in st.session_state:
-            del st.session_state["generated_data"]
-        st.rerun()
+# Input Method Tabs
+tab_manual, tab_batch = st.tabs(["Manual Input & Quick Starts", "Batch CSV Upload (ML Filter)"])
 
-# Main input
+with tab_manual:
+    st.subheader("Quick Start Examples")
+    cols = st.columns(3)
+    quick_stories = [
+        ("Fintech: Money Transfer with 2FA", 
+         "As a registered bank customer, I want to transfer money between my accounts with mandatory 2FA verification, so that transfers are secure."),
+        ("SaaS: User Signup", 
+         "As a new user, I want to sign up with email, password, and company name validation, so I can create an account quickly and securely."),
+        ("Edge Case: Large Amount Transfer", 
+         "As a premium user, I want to initiate a high-value international transfer (> $100,000) with additional approval steps."),
+    ]
+    for col, (label, text) in zip(cols, quick_stories):
+        if col.button(label, key=f"quick_{label}"):
+            st.session_state.user_story = text
+            st.session_state.textarea_version += 1
+            if "generated_data" in st.session_state:
+                del st.session_state["generated_data"]
+            st.rerun()
+
+with tab_batch:
+    st.subheader("Prioritize Backlog with ML")
+    st.markdown("Upload a CSV with your backlog (requires a column `story` or `description`). The ML model will score them so you generate tests only for high risks.")
+    
+    with open("assets/StoryExample.csv", "rb") as f:
+        st.download_button(
+            label="📥 Download Sample CSV Template (StoryExample.csv)",
+            data=f,
+            file_name="StoryExample.csv",
+            mime="text/csv",
+            help="Download this file, add your own User Stories in the 'story' column, then upload it below."
+        )
+    
+    uploaded_file = st.file_uploader("Upload CSV Backlog", type=['csv'])
+    
+    if uploaded_file is not None:
+        try:
+            df_backlog = pd.read_csv(uploaded_file)
+            story_col = next((col for col in df_backlog.columns if 'story' in col.lower() or 'description' in col.lower()), None)
+            
+            if story_col:
+                if st.button("Score Backlog & Prioritize", type="secondary"):
+                    scores, labels = [], []
+                    for text in df_backlog[story_col].fillna(""):
+                        feats = extract_features(str(text))
+                        X_pred = pd.DataFrame([feats])
+                        pred_encoded = model_rf.predict(X_pred)[0]
+                        risk_prob = max(model_rf.predict_proba(X_pred)[0]) * 100
+                        scores.append(round(risk_prob, 1))
+                        labels.append(label_encoder.inverse_transform([pred_encoded])[0])
+                        
+                    df_backlog['Risk Score'] = scores
+                    df_backlog['Risk Label'] = labels
+                    df_sorted = df_backlog.sort_values(by="Risk Score", ascending=False)
+                    st.session_state.scored_backlog = df_sorted
+            else:
+                st.error("Could not find a 'story' or 'description' column in the CSV.")
+                
+        except Exception as e:
+            st.error(f"Error processing CSV: {e}")
+            
+    if "scored_backlog" in st.session_state:
+        st.success("Backlog prioritized! Select a row below to load its story into the generator.")
+        # We use dataframe selection
+        event = st.dataframe(
+            st.session_state.scored_backlog, 
+            use_container_width=True, 
+            selection_mode="single-row", 
+            on_select="rerun"
+        )
+        if event.selection.rows:
+            selected_idx = event.selection.rows[0]
+            selected_story_text = st.session_state.scored_backlog.iloc[selected_idx][story_col]
+            if st.button("Load Selected Story for Generation", type="primary"):
+                st.session_state.user_story = str(selected_story_text)
+                st.session_state.textarea_version += 1
+                if "generated_data" in st.session_state:
+                    del st.session_state["generated_data"]
+                st.rerun()
+
+st.divider()
+
+# Main input (LLM Generation target)
 user_story = st.text_area(
-    "Paste your User Story or Feature Description (English):",
+    "Paste your User Story or Feature Description (English) to generate tests:",
     value=st.session_state.user_story,
-    height=180,
+    height=120,
     key=f"user_story_textarea_{st.session_state.textarea_version}",
-    placeholder="Click a Quick Start button or paste your own..."
+    placeholder="Click a Quick Start button, select from your Batch CSV, or paste your own..."
 )
 
-col_clear, _ = st.columns([1, 3])
+col_clear, _ = st.columns([1, 5])
 with col_clear:
     if st.button("Clear User Story"):
         st.session_state.user_story = ""
@@ -79,35 +182,6 @@ with col_clear:
         if "generated_data" in st.session_state:
             del st.session_state["generated_data"]
         st.rerun()
-
-# Load ML model (cached)
-@st.cache_resource
-def load_risk_model():
-    model_path = "data/risk_model.pkl"
-    encoder_path = "data/label_encoder.pkl"
-    
-    if not (os.path.exists(model_path) and os.path.exists(encoder_path)):
-        st.error("ML model files not found. Please run the training notebook first (notebooks/risk_model_training.ipynb) and ensure files are saved in /data/")
-        st.stop()
-    
-    clf = joblib.load(model_path)
-    le = joblib.load(encoder_path)
-    return clf, le
-
-model_rf, label_encoder = load_risk_model()
-
-# Feature extraction from generated test case
-def extract_features(tc):
-    text = " ".join([str(tc.get(k, "")) for k in ["scenario", "given", "when", "then"]]).lower()
-    return {
-        'loc': len(text) // 10,                     # Proxy complexity (aprox lines of code)
-        'cyclomatic_complexity': len(text.split()) // 5 + 5,  # proxy simple
-        'prev_defects': 4 if any(w in text for w in ['transfer', 'payment', 'money', 'withdraw']) else 1,
-        'negative_tests': 1 if tc.get('type') == 'Negative' else 0,
-        'edge_tests': 1 if tc.get('type') == 'Edge' else 0,
-        'money_related': 1 if any(w in text for w in ['amount', 'money', 'transfer', 'currency', '$']) else 0,
-        'security_related': 1 if any(w in text for w in ['2fa', 'password', 'auth', 'security', 'token', 'otp']) else 0
-    }
 
 # Generate button
 if st.button("Generate Tests + Risk Scoring", type="primary"):
@@ -166,7 +240,7 @@ Respond with valid JSON ONLY."""
         pred_encoded = model_rf.predict(X_pred)[0]
         risk_label = label_encoder.inverse_transform([pred_encoded])[0]
         risk_proba = model_rf.predict_proba(X_pred)[0]
-        risk_score = max(risk_proba) * 100  # confidence del label predicho
+        risk_score = max(risk_proba) * 100  
         tc['risk_score'] = round(risk_score, 1)
         tc['risk_label'] = risk_label
 
@@ -214,76 +288,42 @@ if "generated_data" in st.session_state:
 
     with tab5:
         st.subheader("ML Risk Dashboard")
-        
         if data.get("test_cases"):
             df_scores = pd.DataFrame(data["test_cases"])
-            
-            # Gráfico principal
             st.bar_chart(
                 df_scores['risk_score'].value_counts(bins=5).sort_index(),
                 x_label="Risk Score Range",
                 y_label="Number of Test Cases"
             )
-            
-            # Explicación clara y visible
             st.markdown("""
             **How to read this chart:**
-            - Each bar shows how many generated test cases fall into that risk score range.
-            - **Risk Score** (0–100) represents the model's predicted likelihood of high defect probability.
-            - **80–100**: Very high risk — prioritize these tests first (likely security/money movement issues)
-            - **60–80**: High risk — critical scenarios, negative/edge cases
-            - **40–60**: Medium risk — standard but potentially problematic
-            - **20–40**: Low-medium — mostly positive/happy paths
-            - **0–20**: Low risk — basic validation, low impact expected
-            
-            The model was trained on historical defect patterns (complexity, previous bugs, security/money keywords, etc.).
-            Higher score = test case more likely to uncover real defects based on past data.
+            - **80–100**: Very high risk — prioritize these tests first.
+            - **60–80**: High risk — critical scenarios, negative/edge cases.
+            - **40–60**: Medium risk — standard paths.
+            - **0–40**: Low risk — basic validation.
             """)
-            
-            # Opcional: expander con más detalles técnicos (para usuarios avanzados)
-            with st.expander("More about the Risk Model (Advanced)"):
-                st.markdown("""
-                - **Model**: Random Forest Classifier
-                - **Key features used**:
-                - Estimated complexity (text length proxy)
-                - Presence of money/transfer keywords
-                - Security-related terms (2FA, password, auth...)
-                - Test type (Negative/Edge → higher risk)
-                - **Training data**: Synthetic fintech defects (can be replaced with real datasets later)
-                - **Output**: Probability of "High" risk class × 100
-                """)
                 
         else:
             st.info("Generate some tests to see the risk distribution.")
 
     with tab6:
         st.subheader("Model Decision Transparency (SHAP)")
-        st.markdown("Understand EXACTLY why the ML model assigned a specific Risk Score to a test case.")
-        
         if data.get("test_cases"):
             # Select test case by ID and Scenario
             tc_options = {f"{tc['id']} - {tc['scenario']}": tc for tc in data["test_cases"]}
             selected_tc_key = st.selectbox("Select a Test Case to explain:", list(tc_options.keys()))
             selected_tc = tc_options[selected_tc_key]
             
-            # Reconstruct feature vector
             feats = extract_features(selected_tc)
             X_pred = pd.DataFrame([feats])
             
             with st.spinner("Generating SHAP explanation..."):
                 try:
-                    # Initialize tree explainer
                     explainer = shap.TreeExplainer(model_rf)
                     shap_values = explainer(X_pred)
                     
-                    # Target class logic: model_rf outputs predicting risk classes.
-                    # Usually, index 1 is the positive/high risk class, but we need to pass the appropriate index.
-                    # To keep it robust, if shap_values handles multi-class, we pick the first instance and the predicted class.
-                    # With RandomForest in scikit-learn, shap_values might have shape (n_samples, n_features, n_classes).
                     val_to_plot = shap_values[0]
                     if len(shap_values.shape) == 3:
-                        # Extract the array corresponding to the specific predicted class logic, or default to class index 1 (usually High Risk)
-                        # We just plot the index 1 for highest probability class
                         val_to_plot = shap_values[0, :, 1] if shap_values.shape[2] > 1 else shap_values[0]
 
                     fig, ax = plt.subplots(figsize=(8, 5))
@@ -291,47 +331,88 @@ if "generated_data" in st.session_state:
                     st.pyplot(fig)
                     
                     st.success(f"**Predicted Risk Label:** {selected_tc.get('risk_label')} (Score: {selected_tc.get('risk_score')})")
-                    st.markdown("""
-                    **How to read the SHAP Waterfall Plot:**
-                    - **f(x)** is the model output (before probability scaling) for this specific test case.
-                    - **E[f(x)]** is the baseline average output across the training data.
-                    - Red bars (+): Features that *increased* the risk (pushed it higher).
-                    - Blue bars (-): Features that *decreased* the risk (pushed it lower).
-                    """)
                 except Exception as e:
                     st.error(f"Could not render SHAP plot: {e}")
         else:
             st.info("Generate some tests first to analyze their risk score drivers.")
 
-    # ZIP Download
+    # POM ZIP Download
     def create_zip():
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            # test_cases.md with risk columns
+            # Docs
             tc_md = "| ID | Scenario | Type | Priority | Risk Label | Risk Score | Risk Reason |\n|---|---------|------|----------|------------|------------|-------------|\n"
             for tc in data.get("test_cases", []):
                 tc_md += f"| {tc.get('id','')} | {tc.get('scenario','')} | {tc.get('type','')} | {tc.get('priority','')} | {tc.get('risk_label','')} | {tc.get('risk_score','')} | {tc.get('risk_reason','')} |\n"
-            zip_file.writestr("test_cases.md", tc_md)
+            zip_file.writestr("docs/test_cases.md", tc_md)
+            zip_file.writestr("docs/summary.md", data.get("summary", "No summary") + f"\nEstimated Coverage: {data.get('estimated_coverage', 'N/A')}")
 
-            # scripts
+            # POM Structure
+            base_page = '''class BasePage:
+    def __init__(self, page):
+        self.page = page
+        
+    def navigate(self, url):
+        self.page.goto(url)
+        self.page.wait_for_load_state('networkidle')
+'''
+            zip_file.writestr("pages/__init__.py", "")
+            zip_file.writestr("pages/base_page.py", base_page)
+
+            zip_file.writestr("tests/__init__.py", "")
             for i, script in enumerate(data.get("scripts", []), 1):
                 safe_name = data["test_cases"][i-1].get("scenario", f"script_{i}")[:30].replace(" ", "_").replace("/", "_")
-                filename = f"test_{i:03d}_{safe_name}.py"
+                filename = f"tests/test_{i:03d}_{safe_name}.py"
                 zip_file.writestr(filename, script)
 
-            # summary
-            zip_file.writestr("summary.md", data.get("summary", "No summary") + f"\nEstimated Coverage: {data.get('estimated_coverage', 'N/A')}")
+            # Config
+            pytest_ini = '''[pytest]
+addopts = --headed --browser chromium
+testpaths = tests
+'''
+            zip_file.writestr("pytest.ini", pytest_ini)
+            
+            reqs = "pytest\npytest-playwright\n"
+            zip_file.writestr("requirements.txt", reqs)
+
+            # CI/CD GitHub Actions
+            gh_action = '''name: QA Playwright Regression
+on:
+  push:
+    branches: [ main, master ]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Install Playwright browsers
+        run: playwright install --with-deps chromium
+      - name: Run Pytest
+        run: pytest --tracing=retain-on-failure
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-traces
+          path: test-results/
+'''
+            zip_file.writestr(".github/workflows/qa-regression.yml", gh_action)
 
             # README
-            readme = "# Generated Tests with Risk Scoring\n\nRun scripts:\n```bash\npip install pytest pytest-playwright\nplaywright install\npytest *.py\n```\n"
-            zip_file.writestr("README_tests.md", readme)
+            readme = "# Playwright POM Framework\n\nRun locally:\n```bash\npip install -r requirements.txt\nplaywright install\npytest\n```\n"
+            zip_file.writestr("README.md", readme)
 
         zip_buffer.seek(0)
         return zip_buffer.getvalue()
 
     st.download_button(
-        label="⬇️ Download ZIP (Tests + Scripts + README)",
+        label="⬇️ Download Ready-to-run POM Framework (Tests + Config + CI)",
         data=create_zip(),
-        file_name="ai_generated_tests_with_risk.zip",
-        mime="application/zip"
+        file_name="playwright_pom_framework.zip",
+        mime="application/zip",
+        type="primary"
     )
