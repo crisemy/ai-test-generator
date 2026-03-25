@@ -326,9 +326,12 @@ if "generated_data" in st.session_state:
                     if len(shap_values.shape) == 3:
                         val_to_plot = shap_values[0, :, 1] if shap_values.shape[2] > 1 else shap_values[0]
 
-                    fig, ax = plt.subplots(figsize=(8, 5))
-                    shap.plots.waterfall(val_to_plot, show=False)
-                    st.pyplot(fig)
+                    col_shap1, col_shap2, col_shap3 = st.columns([1, 3, 1])
+                    with col_shap2:
+                        fig, ax = plt.subplots(figsize=(6, 4))
+                        shap.plots.waterfall(val_to_plot, show=False)
+                        # Setting use_container_width=True within a narrow column limits the absolute size
+                        st.pyplot(fig, use_container_width=True)
                     
                     st.success(f"**Predicted Risk Label:** {selected_tc.get('risk_label')} (Score: {selected_tc.get('risk_score')})")
                 except Exception as e:
