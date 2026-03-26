@@ -23,18 +23,18 @@ An intelligent web tool that automatically generates high-quality test cases, Pl
 - All test cases are **automatically sorted by descending risk score** so critical tests always surface first
 - Interactive **ML Risk Dashboard** with bar charts showing the risk distribution of generated tests
 
-### SHAP Model Explainability *(added master branch)*
+### SHAP Model Explainability
 - Dedicated **SHAP Explainability tab** powered by `shap.TreeExplainer`
 - Renders a **Waterfall Plot** for any selected test case, showing exactly which features pushed the risk score up or down
 - Makes the model fully transparent and interpretable — ideal for QA Architects presenting to engineering leadership
 
-### Batch Backlog Prioritization *(Iteration 2)*
+### Batch Backlog Prioritization 
 - Upload a **CSV backlog** of any size (e.g., a Jira export) with a `story` or `description` column
 - The ML model scores **every row instantly** — no LLM calls needed, no rate limits
 - Results table is **interactive**: select the riskiest story and send it directly to the LLM generator with one click
 - Download the **`StoryExample.csv`** template from the UI to get started immediately
 
-### Enterprise-Grade Export *(Iteration 2)*
+### Enterprise-Grade Export
 - Downloadable **ZIP outputs a full Playwright POM Framework** — not just a loose script:
   - `pages/` — base Page Object Model class
   - `tests/` — LLM-generated test scripts, correctly structured
