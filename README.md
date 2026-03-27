@@ -86,7 +86,7 @@ An intelligent web tool that automatically generates high-quality test cases, Pl
 
 6. **Launch the app**
    ```bash
-   streamlit run app.py
+   streamlit run app.py # Or python -m streamlit run app.py to force the .venv path Interpreter
    ```
    Open [http://localhost:8501](http://localhost:8501) in your browser.
 
