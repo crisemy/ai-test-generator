@@ -19,7 +19,6 @@ st.logo("assets/logo.svg")
 st.title("AI-Powered Test Case Generator & Optimizer")
 st.markdown("**Project 1** — Senior QA Engineer & Test Architect | Fintech/SaaS + ML Risk Scoring")
 
-
 # ==================== OLLAMA FUNCTION ====================
 def generate_with_ollama(user_story: str, temperature: float = 0.7, max_tokens: int = 4096) -> Dict[str, Any]:
     """
@@ -80,7 +79,7 @@ if api_key:
     client = Groq(api_key=api_key)
 else:
     st.warning("Enter your Groq API Key to continue.")
-    st.stop()
+    # st.stop() We don't do this because we want to allow Ollama local generation without Groq key
 
 
 # Load ML model (cached)
@@ -173,13 +172,17 @@ with tab_batch:
     st.subheader("Prioritize Backlog with ML")
     st.markdown("Upload a CSV with your backlog (requires a column `story` or `description`).")
     
-    with open("assets/StoryExample.csv", "rb") as f:
-        st.download_button(
-            label="📥 Download Sample CSV Template",
-            data=f,
-            file_name="StoryExample.csv",
-            mime="text/csv"
-        )
+    example_path = "assets/StoryExample.csv"
+    if os.path
+        with open("assets/StoryExample.csv", "rb") as f:
+            st.download_button(
+                label="📥 Download Sample CSV Template",
+                data=f,
+                file_name="StoryExample.csv",
+                mime="text/csv"
+            )
+    else:
+        st.info("Sample CSV not found. Please create a CSV with a 'story' or 'description' column.")
     
     uploaded_file = st.file_uploader("Upload CSV Backlog", type=['csv'])
     
