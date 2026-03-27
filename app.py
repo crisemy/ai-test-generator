@@ -1,13 +1,15 @@
 import os
 
+import matplotlib.pyplot as plt
 import pandas as pd
+import shap
 import streamlit as st
 from dotenv import load_dotenv
 from groq import Groq
 
 from services.export_service import create_framework_zip
 from services.llm_service import generate_with_groq, generate_with_ollama
-from services.risk_service import apply_risk_scoring, load_risk_model, score_backlog
+from services.risk_service import apply_risk_scoring, extract_features, load_risk_model, score_backlog
 
 load_dotenv()
 
@@ -199,6 +201,11 @@ if st.button("Generate Tests + Risk Scoring", type="primary"):
 
     if data.get("test_cases"):
         data["test_cases"] = apply_risk_scoring(data.get("test_cases", []), model_rf, label_encoder)
+        if len(data["test_cases"]) < 8:
+            st.warning(
+                f"The model returned only {len(data['test_cases'])} structured test cases. "
+                "Try generating again to get a fuller risk table."
+            )
 
     st.session_state.generated_data = data
 
@@ -279,13 +286,78 @@ if "generated_data" in st.session_state:
         st.subheader("ML Risk Dashboard")
         if test_cases:
             df_scores = pd.DataFrame(test_cases)
-            st.bar_chart(df_scores["risk_score"].value_counts(bins=5).sort_index())
+            bins = [0, 20, 40, 60, 80, 100]
+            score_buckets = pd.cut(df_scores["risk_score"], bins=bins, include_lowest=True, right=True)
+            distribution = score_buckets.value_counts(sort=False)
+
+            col_risk1, col_risk2, col_risk3 = st.columns([1, 3, 1])
+            with col_risk2:
+                fig, ax = plt.subplots(figsize=(7, 4))
+                distribution.plot(kind="bar", ax=ax, color="#1f77b4", edgecolor="black")
+                ax.set_xlabel("Risk Score Range")
+                ax.set_ylabel("Number of Test Cases")
+                ax.set_title("Risk Score Distribution")
+                ax.tick_params(axis="x", rotation=30)
+                plt.tight_layout()
+                st.pyplot(fig, use_container_width=True)
+                plt.close(fig)
+            st.markdown(
+                """
+**How to read this chart**
+- **80-100**: Very high risk. Prioritize these first.
+- **60-80**: High risk. Important negative/edge scenarios.
+- **40-60**: Medium risk. Core functional coverage.
+- **0-40**: Lower risk. Basic validation or stable paths.
+"""
+            )
         else:
             st.info("ML Risk Dashboard is only available when using Groq models (structured JSON output).")
 
     with tab6:
         st.subheader("SHAP Explainability")
-        st.info("SHAP visualization is only available when structured test cases are generated (Groq mode).")
+        if test_cases:
+            st.markdown(
+                """
+SHAP explains *why* the selected test case got its risk score.
+- Bars pushing to the **right** increase predicted risk.
+- Bars pushing to the **left** decrease predicted risk.
+- Larger absolute bars mean stronger influence on the model decision.
+"""
+            )
+            tc_options = {
+                f"{tc.get('id', 'TC')} - {tc.get('scenario', 'No scenario')}": tc
+                for tc in test_cases
+            }
+            selected_tc_key = st.selectbox("Select a Test Case to explain:", list(tc_options.keys()))
+            selected_tc = tc_options[selected_tc_key]
+
+            feats = extract_features(selected_tc)
+            x_pred = pd.DataFrame([feats])
+
+            with st.spinner("Generating SHAP explanation..."):
+                try:
+                    explainer = shap.TreeExplainer(model_rf)
+                    shap_values = explainer(x_pred)
+
+                    value_to_plot = shap_values[0]
+                    if len(shap_values.shape) == 3:
+                        value_to_plot = shap_values[0, :, 1] if shap_values.shape[2] > 1 else shap_values[0]
+
+                    col_shap1, col_shap2, col_shap3 = st.columns([1, 3, 1])
+                    with col_shap2:
+                        fig = plt.figure(figsize=(7, 4))
+                        shap.plots.waterfall(value_to_plot, show=False)
+                        st.pyplot(fig, use_container_width=True)
+                        plt.close(fig)
+
+                    st.success(
+                        f"Predicted Risk Label: {selected_tc.get('risk_label')} "
+                        f"(Score: {selected_tc.get('risk_score')})"
+                    )
+                except Exception as exc:
+                    st.error(f"Could not render SHAP plot: {exc}")
+        else:
+            st.info("SHAP visualization is only available when structured test cases are generated (Groq mode).")
 
     st.download_button(
         label="Download Ready-to-run POM Framework",
