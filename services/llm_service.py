@@ -1,7 +1,8 @@
 import json
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import ollama
+
 
 def generate_with_ollama(user_story: str, temperature: float = 0.4, max_tokens: int = 5000) -> Dict[str, Any]:
     """
@@ -62,6 +63,7 @@ Be direct and production-ready."""
             "scripts": []
         }
 
+
 def generate_with_groq(client: Any, user_story: str, selected_model: str) -> Dict[str, Any]:
     system_prompt = """You are an expert QA Test Architect with 20+ years in fintech/SaaS.
 Specialize in risk-based testing and automation-first.
@@ -83,6 +85,13 @@ Generate EXACTLY this JSON:
   \"summary\": \"Brief coverage and risk focus summary\"
 }}
 
+Rules:
+- Return 10 to 15 test cases.
+- Include at least 4 Positive, 4 Negative, and 2 Edge cases.
+- `test_cases` must be an array of objects (no markdown, no prose).
+- `scripts` must be an array of plain Python code strings.
+- Do not place test cases in `summary`.
+
 Prioritize fintech risks. Respond with valid JSON ONLY."""
 
     response = client.chat.completions.create(
@@ -98,6 +107,47 @@ Prioritize fintech risks. Respond with valid JSON ONLY."""
 
     raw_json = response.choices[0].message.content
     try:
-        return json.loads(raw_json)
+        data = json.loads(raw_json)
     except json.JSONDecodeError as exc:
         raise ValueError(raw_json) from exc
+
+    return _normalize_groq_payload(data)
+
+
+def _normalize_groq_payload(data: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ValueError("Invalid JSON payload type from Groq.")
+
+    test_cases_raw = data.get("test_cases", [])
+    scripts_raw = data.get("scripts", [])
+
+    if not isinstance(test_cases_raw, list):
+        test_cases_raw = []
+    if not isinstance(scripts_raw, list):
+        scripts_raw = []
+
+    normalized_cases: List[Dict[str, Any]] = []
+    for idx, tc in enumerate(test_cases_raw, 1):
+        if not isinstance(tc, dict):
+            continue
+        normalized_cases.append(
+            {
+                "id": str(tc.get("id", f"TC-{idx:03d}")),
+                "scenario": str(tc.get("scenario", "")).strip(),
+                "given": str(tc.get("given", "")).strip(),
+                "when": str(tc.get("when", "")).strip(),
+                "then": str(tc.get("then", "")).strip(),
+                "type": str(tc.get("type", "Positive")).strip(),
+                "priority": str(tc.get("priority", "Medium")).strip(),
+                "risk_reason": str(tc.get("risk_reason", "")).strip(),
+            }
+        )
+
+    normalized_scripts = [str(script) for script in scripts_raw if isinstance(script, (str, int, float))]
+
+    return {
+        "test_cases": normalized_cases,
+        "scripts": normalized_scripts,
+        "estimated_coverage": str(data.get("estimated_coverage", "N/A")),
+        "summary": str(data.get("summary", "No summary available.")),
+    }
