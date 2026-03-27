@@ -63,7 +63,7 @@ An intelligent web tool that automatically generates high-quality test cases, Pl
    ```bash
    python -m venv .venv
    source .venv/bin/activate   # macOS/Linux
-   # .venv\Scripts\activate    # Windows
+   .venv\Scripts\Activate.ps1 or .venv\Scripts\activate    # Windows in pwsh - Otherwise source .venv/Scripts/activate for bash
    ```
 
 3. **Install dependencies**
