@@ -173,7 +173,7 @@ with tab_batch:
     st.markdown("Upload a CSV with your backlog (requires a column `story` or `description`).")
     
     example_path = "assets/StoryExample.csv"
-    if os.path
+    if os.path.exists(example_path):
         with open("assets/StoryExample.csv", "rb") as f:
             st.download_button(
                 label="📥 Download Sample CSV Template",
