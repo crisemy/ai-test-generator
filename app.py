@@ -10,7 +10,14 @@ import shap
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 
+from providers.jira_client import fetch_jira_story, JiraFetchError
+
 load_dotenv()
+
+DEFAULT_JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "")
+DEFAULT_JIRA_EMAIL = os.getenv("JIRA_EMAIL", "")
+DEFAULT_JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN", "")
+DEFAULT_JIRA_ACCEPTANCE_FIELD = os.getenv("JIRA_ACCEPTANCE_FIELD", "")
 
 st.set_page_config(page_title="AI Test Case Generator & Optimizer", layout="wide")
 st.logo("assets/logo.svg")
@@ -41,6 +48,55 @@ if "user_story" not in st.session_state:
     st.session_state.user_story = ""
 if "textarea_version" not in st.session_state:
     st.session_state.textarea_version = 0
+if "jira_base_url" not in st.session_state:
+    st.session_state.jira_base_url = DEFAULT_JIRA_BASE_URL
+if "jira_email" not in st.session_state:
+    st.session_state.jira_email = DEFAULT_JIRA_EMAIL
+if "jira_api_token" not in st.session_state:
+    st.session_state.jira_api_token = DEFAULT_JIRA_API_TOKEN
+if "jira_issue_key" not in st.session_state:
+    st.session_state.jira_issue_key = ""
+if "jira_ac_field" not in st.session_state:
+    st.session_state.jira_ac_field = DEFAULT_JIRA_ACCEPTANCE_FIELD
+
+# Fuente de la historia
+st.subheader("Fuente de la historia")
+source = st.radio("Seleccioná la fuente", ["Texto manual", "Jira Cloud"], horizontal=True)
+
+if source == "Jira Cloud":
+    col_a, col_b = st.columns(2)
+    with col_a:
+        jira_base_url = st.text_input("Jira Base URL (https://tu-org.atlassian.net)", value=st.session_state.jira_base_url)
+        jira_issue_key = st.text_input("Issue Key (ej: QA-123)", value=st.session_state.jira_issue_key)
+        jira_ac_field = st.text_input("Campo de Acceptance Criteria (customfield_XXXXX, opcional)", value=st.session_state.jira_ac_field)
+    with col_b:
+        jira_email = st.text_input("Jira email/usuario", value=st.session_state.jira_email)
+        jira_api_token = st.text_input("Jira API token", value=st.session_state.jira_api_token, type="password")
+        fetch_jira = st.button("Traer user story desde Jira", key="btn_fetch_jira")
+
+    if fetch_jira:
+        try:
+            story_text, meta = fetch_jira_story(
+                base_url=jira_base_url,
+                email=jira_email,
+                api_token=jira_api_token,
+                issue_key=jira_issue_key,
+                acceptance_field_id=jira_ac_field or None,
+            )
+        except JiraFetchError as exc:
+            st.error(str(exc))
+        else:
+            st.session_state.user_story = story_text
+            st.session_state.textarea_version += 1
+            st.session_state.jira_base_url = jira_base_url
+            st.session_state.jira_email = jira_email
+            st.session_state.jira_api_token = jira_api_token
+            st.session_state.jira_issue_key = jira_issue_key
+            st.session_state.jira_ac_field = jira_ac_field
+            if "generated_data" in st.session_state:
+                del st.session_state["generated_data"]
+            st.success(f"Historia {meta.get('issue_key')} cargada desde Jira")
+            st.rerun()
 
 # Quick Start Examples
 st.subheader("Quick Start Examples")
