@@ -1,0 +1,80 @@
+{
+  "project_key": "SAAS",
+  "issue_type": "Story",
+  "labels": ["ai-seed", "saas", "user-management"],
+  "tickets": [
+    {
+      "key": "SIGNUP-001",
+      "summary": "User Signup with Email and Password",
+      "description": "As a new user, I want to create an account using email and password so that I can access the platform.",
+      "acceptance_criteria": [
+        "User can enter email and password",
+        "Email validation is performed",
+        "Password meets security requirements (min 8 chars, uppercase, lowercase, number)",
+        "Confirmation email is sent",
+        "Account is created upon email verification",
+        "Error messages are clear for invalid inputs"
+      ],
+      "priority": "High",
+      "reporter": "QA Lead"
+    },
+    {
+      "key": "SIGNUP-002",
+      "summary": "User Signup with OAuth (Google/GitHub)",
+      "description": "As a user, I want to sign up using OAuth providers (Google or GitHub) so that I don't need to remember another password.",
+      "acceptance_criteria": [
+        "User can select Google or GitHub login",
+        "OAuth flow redirects correctly",
+        "User profile data is populated from OAuth provider",
+        "Account is created automatically after OAuth authorization",
+        "Email is verified automatically from OAuth provider"
+      ],
+      "priority": "High",
+      "reporter": "QA Lead"
+    },
+    {
+      "key": "SIGNUP-003",
+      "summary": "User Profile Completion After Signup",
+      "description": "As a user, I want to complete my profile information after signing up so that the platform has enough data to personalize my experience.",
+      "acceptance_criteria": [
+        "User is prompted to enter first name, last name, and phone",
+        "All fields have proper validation",
+        "User can skip optional fields",
+        "Profile can be updated later",
+        "Success message appears upon completion"
+      ],
+      "priority": "Medium",
+      "reporter": "QA Lead"
+    },
+    {
+      "key": "SIGNUP-004",
+      "summary": "Email Verification for New Accounts",
+      "description": "As the system, I want to verify user email addresses during signup so that we ensure legitimate user registrations.",
+      "acceptance_criteria": [
+        "Verification email is sent within 1 minute of signup",
+        "Email contains verification link with expiry (24 hours)",
+        "Clicking link verifies account and redirects to dashboard",
+        "Expired links show error message",
+        "Resend verification option is available",
+        "Verified users get confirmation notification"
+      ],
+      "priority": "High",
+      "reporter": "QA Lead"
+    },
+    {
+      "key": "SIGNUP-005",
+      "summary": "Duplicate Account Prevention and Error Handling",
+      "description": "As the system, I want to prevent duplicate accounts and handle signup errors gracefully so that user experience is smooth and data integrity is maintained.",
+      "acceptance_criteria": [
+        "System rejects signup if email already exists",
+        "Clear error message indicates email is registered",
+        "Suggestion to login or reset password is shown",
+        "Network errors are handled with retry option",
+        "Rate limiting prevents brute force attempts",
+        "All errors are logged for monitoring"
+      ],
+      "priority": "High",
+      "reporter": "QA Lead"
+    }
+  ]
+}
