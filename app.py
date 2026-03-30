@@ -59,20 +59,20 @@ if "jira_issue_key" not in st.session_state:
 if "jira_ac_field" not in st.session_state:
     st.session_state.jira_ac_field = DEFAULT_JIRA_ACCEPTANCE_FIELD
 
-# Fuente de la historia
-st.subheader("Fuente de la historia")
-source = st.radio("Seleccioná la fuente", ["Texto manual", "Jira Cloud"], horizontal=True)
+# Story Source
+st.subheader("Story source")
+source = st.radio("Select the source", ["Manual Text", "Jira Cloud"], horizontal=True)
 
 if source == "Jira Cloud":
     col_a, col_b = st.columns(2)
     with col_a:
         jira_base_url = st.text_input("Jira Base URL (https://tu-org.atlassian.net)", value=st.session_state.jira_base_url)
         jira_issue_key = st.text_input("Issue Key (ej: QA-123)", value=st.session_state.jira_issue_key)
-        jira_ac_field = st.text_input("Campo de Acceptance Criteria (customfield_XXXXX, opcional)", value=st.session_state.jira_ac_field)
+        jira_ac_field = st.text_input("AC Field (customfield_XXXXX, opcional)", value=st.session_state.jira_ac_field)
     with col_b:
-        jira_email = st.text_input("Jira email/usuario", value=st.session_state.jira_email)
+        jira_email = st.text_input("Jira email/usuaer", value=st.session_state.jira_email)
         jira_api_token = st.text_input("Jira API token", value=st.session_state.jira_api_token, type="password")
-        fetch_jira = st.button("Traer user story desde Jira", key="btn_fetch_jira")
+        fetch_jira = st.button("Story source from Jira", key="btn_fetch_jira")
 
     if fetch_jira:
         try:
@@ -95,7 +95,7 @@ if source == "Jira Cloud":
             st.session_state.jira_ac_field = jira_ac_field
             if "generated_data" in st.session_state:
                 del st.session_state["generated_data"]
-            st.success(f"Historia {meta.get('issue_key')} cargada desde Jira")
+            st.success(f"Story {meta.get('issue_key')} uploaded from Jira")
             st.rerun()
 
 # Quick Start Examples
@@ -296,7 +296,7 @@ if "generated_data" in st.session_state:
             Higher score = test case more likely to uncover real defects based on past data.
             """)
             
-            # Opcional: expander con más detalles técnicos (para usuarios avanzados)
+            # Expand it even more
             with st.expander("More about the Risk Model (Advanced)"):
                 st.markdown("""
                 - **Model**: Random Forest Classifier
