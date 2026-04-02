@@ -10,19 +10,26 @@ import shap
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 
-from providers.jira_client import fetch_jira_story, JiraFetchError
+from providers.jira_client import fetch_jira_story, validate_jira_connection, JiraFetchError
 
+# Load environment variables
 load_dotenv()
 
-DEFAULT_JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "")
-DEFAULT_JIRA_EMAIL = os.getenv("JIRA_EMAIL", "")
-DEFAULT_JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN", "")
-DEFAULT_JIRA_ACCEPTANCE_FIELD = os.getenv("JIRA_ACCEPTANCE_FIELD", "")
+# Use environment variables directly
+JIRA_API_URL = os.getenv("JIRA_API_URL")
+JIRA_EMAIL = os.getenv("JIRA_EMAIL")
+JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
+JIRA_ACCEPTANCE_FIELD = os.getenv("JIRA_ACCEPTANCE_FIELD", "customfield_XXXXX")
 
-st.set_page_config(page_title="AI Test Case Generator & Optimizer", layout="wide")
-st.logo("assets/logo.svg")
-st.title("AI-Powered Test Case Generator & Optimizer")
-st.markdown("**Project 1** — Senior QA Engineer & Test Architect | Fintech/SaaS + ML Risk Scoring")
+# Validar que las variables necesarias estén definidas
+if not JIRA_API_URL or not JIRA_EMAIL or not JIRA_API_TOKEN:
+    raise ValueError("Faltan configuraciones necesarias para Jira en el archivo .env")
+
+# Usar las configuraciones cargadas en lugar de constantes no definidas
+st.session_state.jira_base_url = JIRA_API_URL
+st.session_state.jira_email = JIRA_EMAIL
+st.session_state.jira_api_token = JIRA_API_TOKEN
+st.session_state.jira_ac_field = JIRA_ACCEPTANCE_FIELD
 
 # API Key handling
 if "GROQ_API_KEY" not in st.session_state:
@@ -49,13 +56,20 @@ if "user_story" not in st.session_state:
 if "textarea_version" not in st.session_state:
     st.session_state.textarea_version = 0
 if "jira_base_url" not in st.session_state:
-    st.session_state.jira_base_url = DEFAULT_JIRA_BASE_URL
+    st.session_state.jira_base_url = st.session_state.jira_base_url
 if "jira_email" not in st.session_state:
-    st.session_state.jira_email = DEFAULT_JIRA_EMAIL
+    st.session_state.jira_email = st.session_state.jira_email
 if "jira_api_token" not in st.session_state:
-    st.session_state.jira_api_token = DEFAULT_JIRA_API_TOKEN
+    st.session_state.jira_api_token = st.session_state.jira_api_token
 if "jira_issue_key" not in st.session_state:
     st.session_state.jira_issue_key = ""
+if "jira_ac_field" not in st.session_state:
+    st.session_state.jira_ac_field = JIRA_ACCEPTANCE_FIELD
+
+# Define a default value for the Jira acceptance field if not provided in the .env file
+DEFAULT_JIRA_ACCEPTANCE_FIELD = os.getenv("JIRA_ACCEPTANCE_FIELD", "customfield_XXXXX")
+
+# Initialize the Jira acceptance field in the session state
 if "jira_ac_field" not in st.session_state:
     st.session_state.jira_ac_field = DEFAULT_JIRA_ACCEPTANCE_FIELD
 
@@ -66,37 +80,59 @@ source = st.radio("Select the source", ["Manual Text", "Jira Cloud"], horizontal
 if source == "Jira Cloud":
     col_a, col_b = st.columns(2)
     with col_a:
-        jira_base_url = st.text_input("Jira Base URL (https://tu-org.atlassian.net)", value=st.session_state.jira_base_url)
-        jira_issue_key = st.text_input("Issue Key (ej: QA-123)", value=st.session_state.jira_issue_key)
-        jira_ac_field = st.text_input("AC Field (customfield_XXXXX, opcional)", value=st.session_state.jira_ac_field)
+        jira_base_url = st.text_input(
+            "Jira Base URL (https://tu-org.atlassian.net)",
+            value=st.session_state.jira_base_url,
+            disabled=not bool(JIRA_API_URL)
+        )
+        jira_issue_key = st.text_input(
+            "Issue Key (ej: QA-123)",
+            value=st.session_state.jira_issue_key or "QA-123"
+        )
+        jira_ac_field = st.text_input(
+            "AC Field (customfield_XXXXX, opcional)",
+            value=st.session_state.jira_ac_field or "customfield_XXXXX"
+        )
     with col_b:
-        jira_email = st.text_input("Jira email/usuaer", value=st.session_state.jira_email)
-        jira_api_token = st.text_input("Jira API token", value=st.session_state.jira_api_token, type="password")
+        jira_email = st.text_input(
+            "Jira email/usuario",
+            value=st.session_state.jira_email,
+            disabled=not bool(JIRA_EMAIL)
+        )
+        jira_api_token = st.text_input(
+            "Jira API token",
+            value=st.session_state.jira_api_token,
+            type="password",
+            disabled=not bool(JIRA_API_TOKEN)
+        )
         fetch_jira = st.button("Story source from Jira", key="btn_fetch_jira")
 
-    if fetch_jira:
-        try:
-            story_text, meta = fetch_jira_story(
-                base_url=jira_base_url,
-                email=jira_email,
-                api_token=jira_api_token,
-                issue_key=jira_issue_key,
-                acceptance_field_id=jira_ac_field or None,
-            )
-        except JiraFetchError as exc:
-            st.error(str(exc))
+    # Validate Jira connection
+    try:
+        if validate_jira_connection(base_url=JIRA_API_URL, username=JIRA_EMAIL, api_token=JIRA_API_TOKEN):
+            st.success("Successfully connected to Jira.")
+            # Skip fetching stories if no issue_key is provided
+            if not st.session_state.get("issue_key"):
+                st.warning("No issue key provided. Skipping story fetch.")
+                raise SystemExit("No issue key provided.")
         else:
-            st.session_state.user_story = story_text
-            st.session_state.textarea_version += 1
-            st.session_state.jira_base_url = jira_base_url
-            st.session_state.jira_email = jira_email
-            st.session_state.jira_api_token = jira_api_token
-            st.session_state.jira_issue_key = jira_issue_key
-            st.session_state.jira_ac_field = jira_ac_field
-            if "generated_data" in st.session_state:
-                del st.session_state["generated_data"]
-            st.success(f"Story {meta.get('issue_key')} uploaded from Jira")
-            st.rerun()
+            st.error("Failed to connect to Jira.")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+        raise SystemExit("Failed to validate Jira connection.")
+
+    # Fetch Jira story
+    try:
+        issue_key = st.session_state.get("issue_key")
+        story_text, meta = fetch_jira_story(
+            issue_key=issue_key,
+            base_url=JIRA_API_URL,
+            username=JIRA_EMAIL,
+            api_token=JIRA_API_TOKEN,
+        )
+        st.success(f"Story {meta.get('key')} fetched successfully.")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
 
 # Quick Start Examples
 st.subheader("Quick Start Examples")
