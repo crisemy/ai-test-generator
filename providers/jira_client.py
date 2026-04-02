@@ -1,6 +1,18 @@
 from typing import Optional, Tuple, Dict, Any
 
 import requests
+import base64
+from dotenv import load_dotenv
+import os
+import logging
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Fetch Jira credentials and base URL from environment variables
+JIRA_API_URL = os.getenv("JIRA_API_URL")
+JIRA_EMAIL = os.getenv("JIRA_EMAIL")  # Updated to use JIRA_EMAIL for consistency
+JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
 
 
 class JiraFetchError(Exception):
@@ -29,60 +41,115 @@ def _adf_to_text(node: Any) -> str:
 
 
 def fetch_jira_story(
-    base_url: str,
-    email: str,
-    api_token: str,
     issue_key: str,
     acceptance_field_id: Optional[str] = None,
+    base_url: Optional[str] = None,
+    username: Optional[str] = None,
+    api_token: Optional[str] = None,
 ) -> Tuple[str, Dict[str, str]]:
     """
-    Fetch a Jira issue (Cloud v3 API) and return plain-text story + metadata.
+    Fetch a Jira story by issue key.
 
-    Returns: (story_text, metadata)
-    Raises: JiraFetchError on any failure that should be surfaced to the UI.
+    Args:
+        issue_key (str): The Jira issue key (e.g., "CRISE7-1").
+        acceptance_field_id (str, optional): The custom field ID for acceptance criteria.
+        base_url (str): The base URL for the Jira API.
+        username (str): The Jira username (email).
+        api_token (str): The Jira API token.
+
+    Returns:
+        tuple: The story text and metadata.
+
+    Raises:
+        Exception: If the request fails or the response is invalid.
     """
-    if not (base_url and email and api_token and issue_key):
-        raise JiraFetchError("Faltan datos para conectarse a Jira (URL, email, token o issue key).")
+    if not base_url or not username or not api_token:
+        raise ValueError("Missing required parameters: base_url, username, or api_token.")
 
-    url = base_url.rstrip("/") + f"/rest/api/3/issue/{issue_key}"
-    params = {"fields": "summary,description" + ("," + acceptance_field_id if acceptance_field_id else "")}
+    url = f"{base_url}/rest/api/3/issue/{issue_key}"
+    headers = {
+        "Authorization": f"Basic {base64.b64encode(f'{username}:{api_token}'.encode()).decode()}",
+        "Content-Type": "application/json",
+    }
+
+    logging.info(f"Fetching Jira story from URL: {url}")
+    logging.info(f"Headers: {headers}")
+    logging.info(f"Issue Key: {issue_key}")
 
     try:
-        resp = requests.get(url, params=params, auth=(email, api_token), timeout=15)
-    except requests.RequestException as exc:
-        raise JiraFetchError(f"No se pudo contactar a Jira: {exc}") from exc
+        resp = requests.get(url, headers=headers)
+        if resp.status_code != 200:
+            logging.error(
+                f"Failed to fetch Jira story. Status code: {resp.status_code}, Response: {resp.text}"
+            )
+            raise Exception(
+                f"Failed to fetch Jira story. Status code: {resp.status_code}"
+            )
 
-    if resp.status_code == 401:
-        raise JiraFetchError("Jira devolvió 401 (credenciales inválidas o token vencido).")
-    if resp.status_code == 404:
-        raise JiraFetchError(f"Issue {issue_key} no encontrado o sin permisos.")
-    if not resp.ok:
-        raise JiraFetchError(f"Error {resp.status_code} al leer Jira: {resp.text[:200]}")
+        try:
+            data = resp.json()
+        except ValueError as e:
+            logging.error(
+                f"Failed to decode JSON response. Error: {e}, Response: {resp.text}"
+            )
+            raise Exception(
+                f"Failed to decode JSON response from Jira. Error: {e}, Response: {resp.text}"
+            )
 
-    data = resp.json()
-    fields = data.get("fields", {})
-    summary = fields.get("summary", "")
-    description = fields.get("description", "")
-    acceptance = None
+        story_text = data.get("fields", {}).get("summary", "")
+        meta = {
+            "key": issue_key,
+            "acceptance_criteria": data.get("fields", {}).get(
+                acceptance_field_id, "" if not acceptance_field_id else None
+            ),
+        }
+        return story_text, meta
 
-    if acceptance_field_id:
-        acceptance = fields.get(acceptance_field_id)
+    except requests.RequestException as e:
+        logging.error(f"Request to Jira API failed. Error: {e}")
+        raise Exception(f"Request to Jira API failed. Error: {e}")
 
-    story_parts = []
-    if summary:
-        story_parts.append(summary)
-    if description:
-        story_parts.append(_adf_to_text(description).strip())
-    if acceptance:
-        story_parts.append("Acceptance Criteria:\n" + _adf_to_text(acceptance).strip())
 
-    story_text = "\n\n".join(filter(None, story_parts)).strip()
-    if not story_text:
-        raise JiraFetchError("La issue no tiene summary/description legibles.")
+def validate_jira_connection(
+    base_url: Optional[str] = None, username: Optional[str] = None, api_token: Optional[str] = None
+) -> bool:
+    """
+    Validate the connection to Jira by making a simple request to the Jira API.
 
-    metadata = {
-        "summary": summary,
-        "issue_key": issue_key,
-        "url": base_url.rstrip("/") + f"/browse/{issue_key}",
+    Args:
+        base_url (str): The base URL for the Jira API.
+        username (str): The Jira username (email).
+        api_token (str): The Jira API token.
+
+    Returns:
+        bool: True if the connection is successful, False otherwise.
+
+    Raises:
+        Exception: If the request fails or the response is invalid.
+    """
+    if not base_url or not username or not api_token:
+        raise ValueError("Missing required parameters: base_url, username, or api_token.")
+
+    url = f"{base_url}/rest/api/3/project"
+    headers = {
+        "Authorization": f"Basic {base64.b64encode(f'{username}:{api_token}'.encode()).decode()}",
+        "Content-Type": "application/json",
     }
-    return story_text, metadata
+
+    logging.info(f"Validating Jira connection with URL: {url}")
+
+    try:
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 200:
+            logging.info("Jira connection validated successfully.")
+            return True
+        else:
+            logging.error(
+                f"Failed to validate Jira connection. Status code: {resp.status_code}, Response: {resp.text}"
+            )
+            raise Exception(
+                f"Failed to validate Jira connection. Status code: {resp.status_code}, Response: {resp.text}"
+            )
+    except requests.RequestException as e:
+        logging.error(f"Request to Jira API failed. Error: {e}")
+        raise Exception(f"Request to Jira API failed. Error: {e}")
