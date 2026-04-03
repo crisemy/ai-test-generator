@@ -43,11 +43,14 @@ env/
 ._*
 
 # IDE / Editor files
-.idea/               
-.vscode/                
+.idea/
+.vscode/
 *.swp
 *.swo
 *.swn
+
+# Claude Code
+.claude/
 
 # Logs and temporary files
 *.log
