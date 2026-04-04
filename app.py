@@ -10,7 +10,7 @@ from groq import Groq
 from services.export_service import create_framework_zip
 from services.llm_service import generate_with_groq, generate_with_ollama
 from services.risk_service import apply_risk_scoring, extract_features, load_risk_model, score_backlog
-from providers.jira_client import fetch_jira_story, validate_jira_connection, JiraFetchError
+from providers.jira_client import fetch_jira_story, JiraFetchError
 
 # Load environment variables
 load_dotenv()
@@ -81,9 +81,12 @@ if source == "Jira Cloud":
                 disabled=not bool(JIRA_API_URL)
             )
             jira_issue_key = st.text_input(
-                "Issue Key (ej: QA-123)",
-                value=st.session_state.jira_issue_key or "QA-123"
+                "Issue Key (ej: QA-123 or KAN-10)",
+                value=st.session_state.jira_issue_key or "KAN-1",
+                placeholder="e.g. KAN-10",
+                key="jira_issue_key_input"
             )
+            st.session_state.jira_issue_key = jira_issue_key
             jira_ac_field = st.text_input(
                 "AC Field (customfield_XXXXX, opcional)",
                 value=st.session_state.jira_ac_field or "customfield_XXXXX"
@@ -102,32 +105,34 @@ if source == "Jira Cloud":
             )
             fetch_jira = st.button("Story source from Jira", key="btn_fetch_jira")
 
-        # Validate Jira connection
-        try:
-            if validate_jira_connection(base_url=JIRA_API_URL, username=JIRA_EMAIL, api_token=JIRA_API_TOKEN):
-                st.success("Successfully connected to Jira.")
-                # Skip fetching stories if no issue_key is provided
-                if not st.session_state.get("issue_key"):
-                    st.warning("No issue key provided. Skipping story fetch.")
-                    raise SystemExit("No issue key provided.")
-            else:
-                st.error("Failed to connect to Jira.")
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
-            raise SystemExit("Failed to validate Jira connection.")
+        # Fetch Jira story only when button is clicked
+        if fetch_jira:
+            base_url = jira_base_url or JIRA_API_URL
+            email = jira_email or JIRA_EMAIL
+            api_token = jira_api_token or JIRA_API_TOKEN
 
-        # Fetch Jira story
-        try:
-            issue_key = st.session_state.get("issue_key")
-            story_text, meta = fetch_jira_story(
-                issue_key=issue_key,
-                base_url=JIRA_API_URL,
-                username=JIRA_EMAIL,
-                api_token=JIRA_API_TOKEN,
-            )
-            st.success(f"Story {meta.get('key')} fetched successfully.")
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
+            if not base_url or not email or not api_token:
+                st.warning("Please fill in all JIRA fields: Base URL, Email, and API Token.")
+            else:
+                try:
+                    issue_key = st.session_state.jira_issue_key or jira_issue_key
+                    if not issue_key or not issue_key.strip():
+                        st.warning("No issue key provided. Enter a JIRA issue key (e.g. KAN-10) to fetch.")
+                        st.stop()
+                    story_text, meta = fetch_jira_story(
+                        issue_key=issue_key.strip(),
+                        base_url=base_url,
+                        username=email,
+                        api_token=api_token,
+                        acceptance_field_id=jira_ac_field if jira_ac_field and jira_ac_field != "customfield_XXXXX" else None,
+                    )
+                    # Inject fetched story into session state so generation pipeline uses it
+                    st.session_state.user_story = story_text
+                    st.session_state.textarea_version += 1
+                    st.success(f"Story {meta.get('issue_key')} loaded from JIRA")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error fetching JIRA story: {e}")
 
 
 @st.cache_resource
