@@ -10,32 +10,51 @@ from groq import Groq
 from services.export_service import create_framework_zip
 from services.llm_service import generate_with_groq, generate_with_ollama
 from services.risk_service import apply_risk_scoring, extract_features, load_risk_model, score_backlog
-from providers.jira_client import fetch_jira_story, JiraFetchError
+from providers.jira_client import fetch_jira_story, validate_jira_connection, JiraFetchError
 
+# Load environment variables
 load_dotenv()
 
-DEFAULT_JIRA_BASE_URL = os.getenv("JIRA_BASE_URL", "")
-DEFAULT_JIRA_EMAIL = os.getenv("JIRA_EMAIL", "")
-DEFAULT_JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN", "")
-DEFAULT_JIRA_ACCEPTANCE_FIELD = os.getenv("JIRA_ACCEPTANCE_FIELD", "")
+# Use environment variables directly
+JIRA_API_URL = os.getenv("JIRA_API_URL")
+JIRA_EMAIL = os.getenv("JIRA_EMAIL")
+JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
+JIRA_ACCEPTANCE_FIELD = os.getenv("JIRA_ACCEPTANCE_FIELD", "customfield_XXXXX")
+
+# Validar que las variables necesarias estén definidas
+if not JIRA_API_URL or not JIRA_EMAIL or not JIRA_API_TOKEN:
+    raise ValueError("Faltan configuraciones necesarias para Jira en el archivo .env")
 
 st.set_page_config(page_title="AI Test Case Generator & Optimizer", layout="wide")
 st.logo("assets/logo.svg")
 st.title("AI-Powered Test Case Generator & Optimizer")
 st.markdown("**Project 1** - Senior QA Engineer & Test Architect | Fintech/SaaS + ML Risk Scoring")
 
+# Usar las configuraciones cargadas en lugar de constantes no definidas
+st.session_state.jira_base_url = JIRA_API_URL
+st.session_state.jira_email = JIRA_EMAIL
+st.session_state.jira_api_token = JIRA_API_TOKEN
+st.session_state.jira_ac_field = JIRA_ACCEPTANCE_FIELD
+
 if "GROQ_API_KEY" not in st.session_state:
     st.session_state.GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 if "selected_story_col" not in st.session_state:
     st.session_state.selected_story_col = None
 if "jira_base_url" not in st.session_state:
-    st.session_state.jira_base_url = DEFAULT_JIRA_BASE_URL
+    st.session_state.jira_base_url = JIRA_API_URL
 if "jira_email" not in st.session_state:
-    st.session_state.jira_email = DEFAULT_JIRA_EMAIL
+    st.session_state.jira_email = JIRA_EMAIL
 if "jira_api_token" not in st.session_state:
-    st.session_state.jira_api_token = DEFAULT_JIRA_API_TOKEN
+    st.session_state.jira_api_token = JIRA_API_TOKEN
 if "jira_issue_key" not in st.session_state:
     st.session_state.jira_issue_key = ""
+if "jira_ac_field" not in st.session_state:
+    st.session_state.jira_ac_field = JIRA_ACCEPTANCE_FIELD
+
+# Define a default value for the Jira acceptance field if not provided in the .env file
+DEFAULT_JIRA_ACCEPTANCE_FIELD = os.getenv("JIRA_ACCEPTANCE_FIELD", "customfield_XXXXX")
+
+# Initialize the Jira acceptance field in the session state
 if "jira_ac_field" not in st.session_state:
     st.session_state.jira_ac_field = DEFAULT_JIRA_ACCEPTANCE_FIELD
 
@@ -47,44 +66,66 @@ if api_key:
 else:
     st.warning("Enter your Groq API Key to continue (or use local Ollama mode).")
 
-# Fuente de la historia
-st.subheader("Fuente de la historia")
-source = st.radio("Seleccioná la fuente", ["Texto manual", "Jira Cloud"], horizontal=True)
+# Story Source
+st.subheader("Story source")
+source = st.radio("Select the source", ["Manual Text", "Jira Cloud"], horizontal=True)
 
 if source == "Jira Cloud":
     col_a, col_b = st.columns(2)
     with col_a:
-        jira_base_url = st.text_input("Jira Base URL (https://tu-org.atlassian.net)", value=st.session_state.jira_base_url)
-        jira_issue_key = st.text_input("Issue Key (ej: QA-123)", value=st.session_state.jira_issue_key)
-        jira_ac_field = st.text_input("Campo de Acceptance Criteria (customfield_XXXXX, opcional)", value=st.session_state.jira_ac_field)
+        jira_base_url = st.text_input(
+            "Jira Base URL (https://tu-org.atlassian.net)",
+            value=st.session_state.jira_base_url,
+            disabled=not bool(JIRA_API_URL)
+        )
+        jira_issue_key = st.text_input(
+            "Issue Key (ej: QA-123)",
+            value=st.session_state.jira_issue_key or "QA-123"
+        )
+        jira_ac_field = st.text_input(
+            "AC Field (customfield_XXXXX, opcional)",
+            value=st.session_state.jira_ac_field or "customfield_XXXXX"
+        )
     with col_b:
-        jira_email = st.text_input("Jira email/usuario", value=st.session_state.jira_email)
-        jira_api_token = st.text_input("Jira API token", value=st.session_state.jira_api_token, type="password")
-        fetch_jira = st.button("Traer user story desde Jira", key="btn_fetch_jira")
+        jira_email = st.text_input(
+            "Jira email/usuario",
+            value=st.session_state.jira_email,
+            disabled=not bool(JIRA_EMAIL)
+        )
+        jira_api_token = st.text_input(
+            "Jira API token",
+            value=st.session_state.jira_api_token,
+            type="password",
+            disabled=not bool(JIRA_API_TOKEN)
+        )
+        fetch_jira = st.button("Story source from Jira", key="btn_fetch_jira")
 
-    if fetch_jira:
-        try:
-            story_text, meta = fetch_jira_story(
-                base_url=jira_base_url,
-                email=jira_email,
-                api_token=jira_api_token,
-                issue_key=jira_issue_key,
-                acceptance_field_id=jira_ac_field or None,
-            )
-        except JiraFetchError as exc:
-            st.error(str(exc))
+    # Validate Jira connection
+    try:
+        if validate_jira_connection(base_url=JIRA_API_URL, username=JIRA_EMAIL, api_token=JIRA_API_TOKEN):
+            st.success("Successfully connected to Jira.")
+            # Skip fetching stories if no issue_key is provided
+            if not st.session_state.get("issue_key"):
+                st.warning("No issue key provided. Skipping story fetch.")
+                raise SystemExit("No issue key provided.")
         else:
-            st.session_state.user_story = story_text
-            st.session_state.textarea_version += 1
-            st.session_state.jira_base_url = jira_base_url
-            st.session_state.jira_email = jira_email
-            st.session_state.jira_api_token = jira_api_token
-            st.session_state.jira_issue_key = jira_issue_key
-            st.session_state.jira_ac_field = jira_ac_field
-            if "generated_data" in st.session_state:
-                del st.session_state["generated_data"]
-            st.success(f"Historia {meta.get('issue_key')} cargada desde Jira")
-            st.rerun()
+            st.error("Failed to connect to Jira.")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+        raise SystemExit("Failed to validate Jira connection.")
+
+    # Fetch Jira story
+    try:
+        issue_key = st.session_state.get("issue_key")
+        story_text, meta = fetch_jira_story(
+            issue_key=issue_key,
+            base_url=JIRA_API_URL,
+            username=JIRA_EMAIL,
+            api_token=JIRA_API_TOKEN,
+        )
+        st.success(f"Story {meta.get('key')} fetched successfully.")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
 
 
 @st.cache_resource
@@ -359,15 +400,35 @@ if "generated_data" in st.session_state:
                 plt.tight_layout()
                 st.pyplot(fig, use_container_width=True)
                 plt.close(fig)
-            st.markdown(
-                """
-**How to read this chart**
-- **80-100**: Very high risk. Prioritize these first.
-- **60-80**: High risk. Important negative/edge scenarios.
-- **40-60**: Medium risk. Core functional coverage.
-- **0-40**: Lower risk. Basic validation or stable paths.
-"""
-            )
+
+            # Explicación clara y visible
+            st.markdown("""
+            **How to read this chart:**
+            - Each bar shows how many generated test cases fall into that risk score range.
+            - **Risk Score** (0–100) represents the model's predicted likelihood of high defect probability.
+            - **80–100**: Very high risk — prioritize these tests first (likely security/money movement issues)
+            - **60–80**: High risk — critical scenarios, negative/edge cases
+            - **40–60**: Medium risk — standard but potentially problematic
+            - **20–40**: Low-medium — mostly positive/happy paths
+            - **0–20**: Low risk — basic validation, low impact expected
+
+            The model was trained on historical defect patterns (complexity, previous bugs, security/money keywords, etc.).
+            Higher score = test case more likely to uncover real defects based on past data.
+            """)
+
+            # Expand it even more
+            with st.expander("More about the Risk Model (Advanced)"):
+                st.markdown("""
+                - **Model**: Random Forest Classifier
+                - **Key features used**:
+                - Estimated complexity (text length proxy)
+                - Presence of money/transfer keywords
+                - Security-related terms (2FA, password, auth...)
+                - Test type (Negative/Edge → higher risk)
+                - **Training data**: Synthetic fintech defects (can be replaced with real datasets later)
+                - **Output**: Probability of "High" risk class × 100
+                """)
+
         else:
             st.info("ML Risk Dashboard is only available when using Groq models (structured JSON output).")
 
