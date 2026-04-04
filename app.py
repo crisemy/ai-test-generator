@@ -447,14 +447,6 @@ if "generated_data" in st.session_state:
     with tab6:
         st.subheader("SHAP Explainability")
         if test_cases:
-            st.markdown(
-                """
-SHAP explains *why* the selected test case got its risk score.
-- Bars pushing to the **right** increase predicted risk.
-- Bars pushing to the **left** decrease predicted risk.
-- Larger absolute bars mean stronger influence on the model decision.
-"""
-            )
             tc_options = {
                 f"{tc.get('id', 'TC')} - {tc.get('scenario', 'No scenario')}": tc
                 for tc in test_cases
@@ -485,6 +477,19 @@ SHAP explains *why* the selected test case got its risk score.
                         f"Predicted Risk Label: {selected_tc.get('risk_label')} "
                         f"(Score: {selected_tc.get('risk_score')})"
                     )
+
+                    with st.expander("About this chart"):
+                        st.markdown(
+                            """
+**How to read this chart:**
+
+- **Red bars (positive)** push the risk score **up** — these features increase predicted defect likelihood.
+- **Blue bars (negative)** push the risk score **down** — these features decrease predicted defect likelihood.
+- **Bar width** indicates magnitude of influence on the model's decision.
+- The base value (leftmost) is the average prediction across all training samples.
+- The final score (rightmost) is the predicted risk for this specific test case.
+                            """
+                        )
                 except Exception as exc:
                     st.error(f"Could not render SHAP plot: {exc}")
         else:
