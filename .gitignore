@@ -51,7 +51,7 @@ env/
 
 # Claude Code
 .claude/
-.docs/
+docs/
 
 # Logs and temporary files
 *.log
