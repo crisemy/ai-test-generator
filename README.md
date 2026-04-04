@@ -127,6 +127,8 @@ python scripts/seed_jira.py --template assets/jira-seed-template.json
 
 In JIRA, filter seeded issues with: `labels = ai-seed`
 
+![JIRA-Seed](./images/jira-seed.png "JIRA Seed Stories")  
+
 ## Project Structure
 
 ```bash
