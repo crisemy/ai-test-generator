@@ -1,85 +1,65 @@
-# AI Backlog Risk Prioritizer (Fintech/SaaS)
+# AI-Powered Test Case Generator & Optimizer
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.38%2B-FF4B4B)](https://streamlit.io/)
-[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.5%2B-F7931E)](https://scikit-learn.org/)
-[![SHAP](https://img.shields.io/badge/SHAP-Explainability-blueviolet)](https://shap.readthedocs.io/)
+[![Groq](https://img.shields.io/badge/Groq-Llama%203.3-orange)](https://groq.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A web application for **risk-based backlog prioritization** using Machine Learning, designed for QA/Product teams in fintech and SaaS.
+An intelligent web tool that automatically generates high-quality test cases, Playwright automation scripts, and prioritizes them using ML-based risk scoring — built for fintech and SaaS quality engineering.
 
----
-
-## What It Solves
-
-- Classifies stories as **High / Medium / Low risk**
-- Calculates a **Risk Score (0-100)** per story
-- Automatically ranks backlog items by criticality
-- Helps teams decide what to validate first
-
----
-
-## Key Features
-
-### ML-Driven Prioritization
-- Upload a backlog CSV (`story` or `description` column)
-- Automatic scoring using `RandomForestClassifier`
-- Ranked table sorted by descending risk score
-
-### Risk Dashboard
-- Risk distribution overview
-- Fast visibility into critical-item concentration
-
-### Model Transparency
-- Explainability section to understand why a story scores higher or lower
-- Based on heuristic features + trained model artifacts
-
----
+**Key Features**
+- Generate 10–15 manual test cases (Gherkin-style) from a natural language user story
+- Produce ready-to-run Playwright Python scripts for high-priority scenarios
+- Apply **ML risk scoring** (Random Forest Classifier) to prioritize tests based on predicted defect likelihood
+- Export everything in a clean ZIP file (Markdown table + .py scripts + README)
+- Simple, fast MVP with Streamlit + Groq LLM + scikit-learn
 
 ## Demo
 
-![AI Backlog Risk Dashboard](./images/MLRiskDashboard.png "AI Backlog Risk Prioritizer")
-
----
+![AI-Powered Test Case Generator & Optimizer](./images/MLRiskDashboard.png "AI Test Generator")  
 
 ## Quick Start
 
-1. **Clone the repository**
+1. Clone the repository
    ```bash
    git clone https://github.com/crisemy/ai-test-generator.git
    cd ai-test-generator
    ```
 
-2. **Create and activate a virtual environment**
+   Note: Provided a init-scripts folder containing .sh scripts for initializing the repo
+
+2. Create and activate virtual environment
    ```bash
    python -m venv .venv
    source .venv/bin/activate   # macOS/Linux
-   .venv\Scripts\Activate.ps1 # Windows PowerShell
+   .venv\Scripts\activate      # Windows
    ```
+   
+   Note: Provided a init-scripts folder containing .sh scripts for initializing the .env for MAC users
 
-3. **Install dependencies**
+3. Install dependencies
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **(Optional) Set a Groq API key**
-   Only needed if you want to use LLM-assisted mode.
+4. Set up your Groq API key (https://console.groq.com/keys)
+   
+   Create a .env file in the root and add your Groq API Key:
    ```bash
    GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    ```
 
-5. **(Optional) Retrain model artifacts**
+5. (One-time) Train the risk model
    ```bash
    jupyter notebook notebook/riskModelTraining.ipynb
    ```
 
-6. **Run the app**
+6. Launch the app
    ```bash
-   streamlit run app.py
+   python -m streamlit run app.py
    ```
-   Open [http://localhost:8501](http://localhost:8501).
-
----
+   
+   Open http://localhost:8501 in your browser.
 
 ## Troubleshooting
 
@@ -106,49 +86,38 @@ ollama serve
 
 ## Project Structure
 
-```text
+```bash
 ai-test-generator/
-├── app.py
-├── services/
-│   ├── llm_service.py
-│   ├── risk_service.py
-│   └── export_service.py
-├── assets/
-│   ├── logo.svg
-│   └── StoryExample.csv
+├── app.py                        # Main Streamlit application
+├── notebooks/
+│   └── riskModelTraining.ipynb   # ML training, EDA and model serialization
 ├── data/
-│   ├── risk_model.pkl
-│   └── label_encoder.pkl
-├── notebook/
-│   ├── riskModelTraining.ipynb
-│   └── US-priority.ipynb
+│   ├── historical_defects.csv    # Training dataset (synthetic or real)
+│   ├── risk_model.pkl            # Trained RandomForest model
+│   └── label_encoder.pkl         # Label encoder for risk categories
 ├── requirements.txt
+├── .env.example
+├── .gitignore
 └── README.md
 ```
 
----
+## How it works
 
-## How It Works
-
-1. Load stories manually or through CSV.
-2. The feature engine transforms story text into risk predictors.
-3. The ML model returns risk label and score per story.
-4. The app ranks stories from highest to lowest risk.
-5. Teams use the ranking for planning and execution focus.
-
----
+1. **Input** — Paste a user story or use quick fintech/SaaS examples.
+2. **Generation** — Groq LLM (Llama 3.3 70B) creates structured test cases + Playwright scripts.
+3. **Risk Scoring** — Features extracted from each test case → Random Forest predicts risk label (High/Medium/Low) and score (0–100).
+4. **Prioritization** — Tests sorted by descending risk score.
+5. **Export** — Download ZIP with Markdown table (including risk), .py scripts and instructions.
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| UI | Streamlit |
-| ML | scikit-learn (`RandomForestClassifier`) |
-| Data | pandas + joblib |
-| Explainability | SHAP |
-| Config | python-dotenv |
-
----
+| Component | Technology |
+|-----------|------------|
+| Frontend | Streamlit |
+| LLM | Groq API (Llama 3.3 70B Versatile) |
+| ML | scikit-learn (RandomForestClassifier) |
+| Automation | Playwright (Python sync API) |
+| Data/Model Persistence | pandas + joblib |
 
 ## Requirements
 
@@ -156,17 +125,24 @@ ai-test-generator/
 streamlit>=1.38.0
 groq>=0.9.0
 python-dotenv>=1.0.1
-scikit-learn>=1.5.0
 pandas>=2.2.0
-numpy>=1.26.0,<2.0.0
-shap>=0.40.0,<0.50.0
-matplotlib>=3.7.0
+numpy>=1.26.0
+scikit-learn>=1.5.0
+joblib>=1.4.0
 ```
-
----
 
 ## Author
 
 **Cristian N.**
 
-QA Engineer focused on quality architecture, risk-based prioritization, and AI/ML applications for QA.
+QA Engineer with 20+ years of experience in software testing and automation.
+
+MSc Candidate in Data Science & Artificial Intelligence.
+
+Research interests include:
+
+* Experimental QA engineering
+* QA Architecture
+* Reliability testing
+* AI-assisted quality assurance
+* Data-driven software stability analysis
