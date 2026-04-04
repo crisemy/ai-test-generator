@@ -353,7 +353,7 @@ if "generated_data" in st.session_state:
                         gherkin_part = raw_text.split("```gherkin")[-1].split("```")[0]
                     else:
                         gherkin_part = raw_text[:2000]  # fallback
-                    st.text_area("Gherkin", gherkin_part.strip(), height=450, key="gherkin_area")
+                    st.text(gherkin_part.strip(), height=450)
 
                 with col_code:
                     st.markdown("**Playwright Code**")
@@ -385,8 +385,13 @@ if "generated_data" in st.session_state:
 
     with tab3:
         st.subheader("Gherkin Summary")
-        st.markdown(data.get("summary", "No summary available."))
-        st.info(f"Estimated Coverage: {data.get('estimated_coverage', 'N/A')}")
+        gherkin_text = data.get("gherkin", "")
+        if gherkin_text:
+            st.markdown("**Scenarios**")
+            st.text(gherkin_text, height=400)
+        else:
+            st.markdown(data.get("summary", "No summary available."))
+            st.info(f"Estimated Coverage: {data.get('estimated_coverage', 'N/A')}")
 
     with tab5:
         st.subheader("ML Risk Dashboard")

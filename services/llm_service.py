@@ -147,9 +147,19 @@ def _normalize_groq_payload(data: Dict[str, Any]) -> Dict[str, Any]:
 
     normalized_scripts = [str(script) for script in scripts_raw if isinstance(script, (str, int, float))]
 
+    gherkin_raw = data.get("gherkin", "")
+    gherkin_text = ""
+    if gherkin_raw:
+        gherkin_str = str(gherkin_raw)
+        if "```gherkin" in gherkin_str:
+            gherkin_text = gherkin_str.split("```gherkin")[1].split("```")[0].strip()
+        else:
+            gherkin_text = gherkin_str.strip()
+
     return {
         "test_cases": normalized_cases,
         "scripts": normalized_scripts,
+        "gherkin": gherkin_text,
         "estimated_coverage": str(data.get("estimated_coverage", "N/A")),
         "summary": str(data.get("summary", "No summary available.")),
     }
