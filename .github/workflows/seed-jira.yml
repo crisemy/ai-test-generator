@@ -1,0 +1,42 @@
+name: Seed JIRA Issues
+
+on:
+  workflow_dispatch:  # Manual trigger from GitHub UI
+  schedule:
+    - cron: '0 0 1 * *'  # Optional: Run monthly on first day at 00:00 UTC
+
+jobs:
+  seed-jira:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run JIRA Seed Script
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          echo "🚀 Starting JIRA seed..."
+          python scripts/seed_jira.py
+          echo "✅ JIRA seed completed"
+      
+      - name: Upload logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-logs
+          path: ./*.log
