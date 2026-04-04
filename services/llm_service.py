@@ -75,14 +75,15 @@ Respond ONLY with valid JSON. No extra text."""
 Generate EXACTLY this JSON:
 
 {{
-  \"test_cases\": [
-    {{\"id\": \"TC-001\", \"scenario\": \"str\", \"given\": \"str\", \"when\": \"str\", \"then\": \"str\", \"type\": \"Positive|Negative|Edge\", \"priority\": \"High|Medium|Low\", \"risk_reason\": \"str\"}}
+  "test_cases": [
+    {{"id": "TC-001", "scenario": "str", "given": "str", "when": "str", "then": "str", "type": "Positive|Negative|Edge", "priority": "High|Medium|Low", "risk_reason": "str"}}
   ],
-  \"scripts\": [
-    \"Full Python Playwright sync code string...\"
+  "gherkin": "Full Gherkin test cases in ```gherkin``` format with Feature and Scenario keywords",
+  "scripts": [
+    "Full Python Playwright sync code string..."
   ],
-  \"estimated_coverage\": \"XX%\",
-  \"summary\": \"Brief coverage and risk focus summary\"
+  "estimated_coverage": "XX%",
+  "summary": "Brief coverage and risk focus summary"
 }}
 
 Rules:
@@ -90,6 +91,7 @@ Rules:
 - Include at least 4 Positive, 4 Negative, and 2 Edge cases.
 - `test_cases` must be an array of objects (no markdown, no prose).
 - `scripts` must be an array of plain Python code strings.
+- `gherkin` must be a single string with properly formatted Gherkin (Feature, Scenario, Given/When/Then).
 - Do not place test cases in `summary`.
 
 Prioritize fintech risks. Respond with valid JSON ONLY."""

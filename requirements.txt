@@ -1,11 +1,13 @@
 # Core dependencies for the AI Test Case Generator project
 streamlit>=1.38.0          # Web UI
-groq>=0.9.0                # Groq API oficcial Client
+groq>=0.9.0                # Groq API official Client
 python-dotenv>=1.0.1       # Safe .venv handling
+ollama>=0.3.0              # Local LLM via Ollama
 
-# Future additions for ML-based test generation:
-scikit-learn>=1.5.0        # ML (RandomForest, etc.)
+# ML-based test generation:
+scikit-learn>=1.5.0        # ML (RANDOMFOREST, etc.)
 pandas>=2.2.0              # Datasets handling
 numpy>=1.26.0,<2.0.0       # Common dependency pinned <2 for SHAP and Scikit-learn compatibility
 shap>=0.40.0,<0.50.0       # ML Explainability pinned <0.50 to avoid needing numpy 2.0
 matplotlib>=3.7.0          # Plotting engine for SHAP
+requests>=2.32.0           # HTTP client for integrations (Jira/TMS)
