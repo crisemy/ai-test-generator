@@ -161,6 +161,33 @@ Now you can trigger seeds manually from GitHub Actions or on schedule!
 | `400 Bad Request` | Ensure project key exists and issue type is valid |
 | `Missing project_key` | Add `"project_key"` to template JSON |
 
+## JIRA Seed from CSV
+
+Seed JIRA issues directly from `assets/StoryExample.csv` (10 fintech/SaaS user stories):
+
+```bash
+# Preview what will be created
+python scripts/jira_seed_from_csv.py --project KAN --dry-run
+
+# Create issues in specified project
+python scripts/jira_seed_from_csv.py --project KAN
+
+# Custom labels
+python scripts/jira_seed_from_csv.py --project KAN --labels ai-seed,sprint-1
+
+# Custom CSV path
+python scripts/jira_seed_from_csv.py --project KAN --csv assets/my-stories.csv
+```
+
+**CSV format** (must have `id` and `story` columns):
+```csv
+id,story
+US-001,"As a registered bank customer I want to transfer money..."
+US-002,"As a new user I want to sign up with email..."
+```
+
+The script extracts a summary automatically from the story text (the "I want" clause) and adds labels including `id` as label (e.g., `us-001`).
+
 ## Notes
 
 - **No LLM overhead**: This script creates static issues from a template, saving API tokens
