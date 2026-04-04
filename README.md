@@ -12,6 +12,7 @@ An intelligent web tool that automatically generates high-quality test cases, Pl
 - Produce ready-to-run Playwright Python scripts for high-priority scenarios
 - Apply **ML risk scoring** (Random Forest Classifier) to prioritize tests based on predicted defect likelihood
 - Export everything in a clean ZIP file (Markdown table + .py scripts + README)
+- **JIRA integration**: fetch user stories from JIRA Cloud or seed JIRA projects from CSV with one command
 - Simple, fast MVP with Streamlit + Groq LLM + scikit-learn
 
 ## Demo
@@ -42,12 +43,20 @@ An intelligent web tool that automatically generates high-quality test cases, Pl
    pip install -r requirements.txt
    ```
 
-4. Set up your Groq API key (https://console.groq.com/keys)
-   
-   Create a .env file in the root and add your Groq API Key:
+4. Set up your environment variables
+
+   Create a `.env` file in the root:
    ```bash
+   # Groq API (required)
    GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+   # JIRA Cloud (optional - for fetching stories or seeding)
+   JIRA_BASE_URL=https://your-org.atlassian.net
+   JIRA_EMAIL=your.email@company.com
+   JIRA_API_TOKEN=your_api_token_here
    ```
+
+   Get your JIRA API token at: https://id.atlassian.com/manage-profile/security/api-tokens
 
 5. (One-time) Train the risk model
    ```bash
@@ -84,18 +93,61 @@ ollama pull llama3.2:3b
 ollama serve
 ```
 
+## JIRA Integration
+
+The app supports two JIRA workflows:
+
+### Fetch User Stories from JIRA
+
+Paste a JIRA issue key (e.g. `KAN-1`) and the app fetches the user story automatically via JIRA Cloud API.
+
+### Seed JIRA Projects from CSV
+
+Seed a JIRA project with sample user stories using the CSV seed script:
+
+```bash
+# Preview what will be created
+python scripts/jira_seed_from_csv.py --project KAN --dry-run
+
+# Create issues in specified project
+python scripts/jira_seed_from_csv.py --project KAN
+
+# With custom labels
+python scripts/jira_seed_from_csv.py --project KAN --labels ai-seed,sprint-1
+```
+
+The script reads from `assets/StoryExample.csv` (10 fintech/SaaS user stories) and auto-extracts the summary from each story's "I want" clause. All seeded issues get the `ai-seed` label for easy filtering.
+
+For advanced use, `scripts/seed_jira.py` supports seeding from a custom JSON template:
+
+```bash
+python scripts/seed_jira.py --template assets/jira-seed-template.json --dry-run
+python scripts/seed_jira.py --template assets/jira-seed-template.json
+```
+
+In JIRA, filter seeded issues with: `labels = ai-seed`
+
 ## Project Structure
 
 ```bash
 ai-test-generator/
 ├── app.py                        # Main Streamlit application
+├── scripts/
+│   ├── seed_jira.py              # Seed JIRA from JSON template
+│   ├── jira_seed_from_csv.py     # Seed JIRA from CSV (10 user stories)
+│   └── README.md                 # Seed scripts documentation
+├── providers/
+│   └── jira_client.py            # JIRA Cloud API client
+├── assets/
+│   ├── StoryExample.csv          # 10 sample fintech user stories
+│   ├── jira-seed-template.json   # JSON template for seeding
+│   └── logo.svg                  # App logo
 ├── notebooks/
 │   └── riskModelTraining.ipynb   # ML training, EDA and model serialization
 ├── data/
 │   ├── historical_defects.csv    # Training dataset (synthetic or real)
 │   ├── risk_model.pkl            # Trained RandomForest model
 │   └── label_encoder.pkl         # Label encoder for risk categories
-├── requirements.txt
 ├── .env.example
 ├── .gitignore
 └── README.md
