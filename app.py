@@ -316,6 +316,12 @@ if "generated_data" in st.session_state:
     data = st.session_state.generated_data
     test_cases = data.get("test_cases", [])
 
+    # Sort test_cases by numeric TC id for consistent display order
+    test_cases = sorted(
+        test_cases,
+        key=lambda tc: int(tc.get("id", "TC-0").replace("TC-", "0") or "0")
+    )
+
     tab1, tab2, tab3, tab5, tab6 = st.tabs(
         [
             "Risk Prioritized Table",
@@ -330,7 +336,10 @@ if "generated_data" in st.session_state:
         if not is_local_ollama and data.get("test_cases"):
             # === MODO GROQ ===
             st.subheader("Test Cases Prioritized by ML Risk Score")
-            df_tc = pd.DataFrame(data["test_cases"])
+            df_tc = pd.DataFrame(test_cases)
+            # Sort by numeric TC id (TC-001, TC-002, ...)
+            df_tc["_sort_key"] = df_tc["id"].str.extract(r"(\d+)").astype(float)
+            df_tc = df_tc.sort_values("_sort_key").drop(columns="_sort_key").reset_index(drop=True)
             st.dataframe(
                 df_tc[['id', 'scenario', 'type', 'priority', 'risk_label', 'risk_score', 'risk_reason']],
                 use_container_width=True,
