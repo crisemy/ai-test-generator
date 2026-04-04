@@ -10,4 +10,4 @@ pandas>=2.2.0              # Datasets handling
 numpy>=1.26.0,<2.0.0       # Common dependency of pandas/sklearn
 shap>=0.40.0,<0.50.0       # ML Explainability
 matplotlib>=3.7.0          # Plotting engine for SHAP
-requests>=2.32.0           # HTTP client para integraciones (Jira/TMS)
+requests>=2.32.0           # HTTP client for integrations (Jira/TMS)
