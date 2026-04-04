@@ -81,6 +81,29 @@ A web application for **risk-based backlog prioritization** using Machine Learni
 
 ---
 
+## Troubleshooting
+
+### Streamlit cache issues
+If you encounter unexpected behavior after updates or module errors:
+```bash
+streamlit cache clear
+pkill -f streamlit
+streamlit run app.py
+```
+
+### Missing dependencies
+If you get `ModuleNotFoundError`, reinstall dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+### Ollama local mode (optional)
+To use local LLM instead of Groq API, ensure Ollama is running:
+```bash
+ollama pull llama3.2:3b
+ollama serve
+```
+
 ## Project Structure
 
 ```text
