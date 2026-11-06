@@ -179,7 +179,6 @@ ai-test-generator/
 ## Tech Stack
 
 | Component | Technology |
-
 |-----------|------------|
 | Frontend | Streamlit |
 | LLM | Groq API (Llama 3.3 70B Versatile) |
