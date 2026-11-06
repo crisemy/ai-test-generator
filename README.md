@@ -29,7 +29,7 @@ An intelligent web tool that automatically generates high-quality test cases, Pl
    cd ai-test-generator
    ```
 
-   Note: Provided a init-scripts folder containing .sh scripts for initializing the repo
+Note: Provided a init-scripts folder containing .sh scripts for initializing the repo
 
 2. Create and activate virtual environment
 
