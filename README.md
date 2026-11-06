@@ -1,13 +1,14 @@
 # AI-Powered Test Case Generator & Optimizer
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.38%2B-FF4B4B)](https://streamlit.io/)
-[![Groq](https://img.shields.io/badge/Groq-Llama%203.3-orange)](https://groq.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.38%2B-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Groq](https://img.shields.io/badge/Groq-Llama%203.3-orange?logo=groq&logoColor=white)](https://groq.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An intelligent web tool that automatically generates high-quality test cases, Playwright automation scripts, and prioritizes them using ML-based risk scoring — built for fintech and SaaS quality engineering.
 
 **Key Features**
+
 - Generate 10–15 manual test cases (Gherkin-style) from a natural language user story
 - Produce ready-to-run Playwright Python scripts for high-priority scenarios
 - Apply **ML risk scoring** (Random Forest Classifier) to prioritize tests based on predicted defect likelihood
@@ -22,6 +23,7 @@ An intelligent web tool that automatically generates high-quality test cases, Pl
 ## Quick Start
 
 1. Clone the repository
+
    ```bash
    git clone https://github.com/crisemy/ai-test-generator.git
    cd ai-test-generator
@@ -30,22 +32,25 @@ An intelligent web tool that automatically generates high-quality test cases, Pl
    Note: Provided a init-scripts folder containing .sh scripts for initializing the repo
 
 2. Create and activate virtual environment
+
    ```bash
    python -m venv .venv
    source .venv/bin/activate   # macOS/Linux
    .venv\Scripts\activate      # Windows
    ```
-   
-   Note: Provided a init-scripts folder containing .sh scripts for initializing the .env for MAC users
+
+Note: Provided a init-scripts folder containing .sh scripts for initializing the .env for MAC users
 
 3. Install dependencies
+
    ```bash
    pip install -r requirements.txt
    ```
 
 4. Set up your environment variables
 
-   Create a `.env` file in the root:
+Create a `.env` file in the root:
+   
    ```bash
    # Groq API (required)
    GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -59,21 +64,25 @@ An intelligent web tool that automatically generates high-quality test cases, Pl
    Get your JIRA API token at: https://id.atlassian.com/manage-profile/security/api-tokens
 
 5. (One-time) Train the risk model
+
    ```bash
    jupyter notebook notebook/riskModelTraining.ipynb
    ```
 
 6. Launch the app
+
    ```bash
    python -m streamlit run app.py
    ```
    
-   Open http://localhost:8501 in your browser.
+   Open <http://localhost:8501> in your browser.
 
 ## Troubleshooting
 
 ### Streamlit cache issues
+
 If you encounter unexpected behavior after updates or module errors:
+
 ```bash
 streamlit cache clear
 pkill -f streamlit
@@ -81,13 +90,17 @@ streamlit run app.py
 ```
 
 ### Missing dependencies
+
 If you get `ModuleNotFoundError`, reinstall dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### Ollama local mode (optional)
+
 To use local LLM instead of Groq API, ensure Ollama is running:
+
 ```bash
 ollama pull llama3.2:3b
 ollama serve
@@ -166,6 +179,7 @@ ai-test-generator/
 ## Tech Stack
 
 | Component | Technology |
+
 |-----------|------------|
 | Frontend | Streamlit |
 | LLM | Groq API (Llama 3.3 70B Versatile) |
